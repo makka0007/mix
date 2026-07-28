@@ -1,7 +1,10 @@
 package com.minsu.splitroutine
 
+import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.text.TextUtils
@@ -9,6 +12,8 @@ import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.minsu.splitroutine.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
@@ -71,7 +76,46 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
 
+        binding.btnNotificationSettings.setOnClickListener {
+            openFullScreenNotificationSettings()
+        }
+
         updateRootStatus()
+        requestNotificationPermissionIfNeeded()
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(
+                this, Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!granted) {
+                ActivityCompat.requestPermissions(
+                    this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 100
+                )
+            }
+        }
+    }
+
+    private fun openFullScreenNotificationSettings() {
+        try {
+            val intent = if (Build.VERSION.SDK_INT >= 34) {
+                Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+            } else {
+                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                    putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                }
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(
+                this,
+                "설정 화면을 열 수 없습니다. 설정 > 앱 > 이 앱 > 알림에서 직접 허용해주세요.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
     }
 
     private fun updateRootStatus() {
@@ -79,7 +123,7 @@ class MainActivity : AppCompatActivity() {
         binding.tvRootStatus.text = if (hasRoot) {
             "루트 상태: 사용 가능 (루트 방식 우선 사용)"
         } else {
-            "루트 상태: 없음 (접근성 서비스 방식 사용, 아래에서 권한을 켜주세요)"
+            "루트 상태: 없음 (접근성 서비스 + 알림 방식 사용, 아래에서 권한을 켜주세요)"
         }
     }
 
